@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ComfyUI 工作流提取器</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#ffffff; --border:#e3e8ef; --text:#1f2733;
+    --muted:#6b7785; --accent:#2f6df6; --accent-soft:#e8f0ff;
+    --ok:#1f9d55; --warn:#d98a00; --bad:#d64545; --code:#f3f5f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--text);line-height:1.55;}
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 80px;}
+  header h1{font-size:22px;margin:0 0 4px;}
+  header h1 .ver{font-size:12px;font-weight:500;color:var(--accent);background:var(--accent-soft);
+                 border:1px solid #cfe0ff;border-radius:999px;padding:2px 8px;vertical-align:middle;margin-left:6px;}
+  header p{margin:0;color:var(--muted);font-size:13px;}
+  .banner{margin:16px 0;padding:10px 14px;border-radius:10px;font-size:13px;
+          background:var(--accent-soft);color:#1b4fc0;border:1px solid #cfe0ff;}
+  .drop{margin-top:18px;border:2px dashed #c4cedb;border-radius:14px;background:var(--panel);
+        padding:34px 20px;text-align:center;cursor:pointer;transition:.15s;}
+  .drop.hover{border-color:var(--accent);background:var(--accent-soft);}
+  .drop b{color:var(--accent);}
+  .btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;}
+  button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--panel);
+         color:var(--text);padding:9px 14px;border-radius:9px;transition:.12s;}
+  button:hover{border-color:var(--accent);color:var(--accent);}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  button.primary:hover{filter:brightness(1.05);color:#fff;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .card{margin-top:18px;background:var(--panel);border:1px solid var(--border);
+        border-radius:14px;overflow:hidden;}
+  .card .top{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);}
+  .card .top .name{font-weight:600;word-break:break-all;}
+  .tag{font-size:11px;padding:3px 8px;border-radius:999px;white-space:nowrap;}
+  .tag.wf{background:#e7f6ee;color:var(--ok);}
+  .tag.api{background:#eef2ff;color:#3a4ed6;}
+  .tag.none{background:#fdeaea;color:var(--bad);}
+  .tag.both{background:#fff2e0;color:var(--warn);}
+  .card .body{padding:14px 16px;}
+  .sec{margin-top:14px;}
+  .sec h3{font-size:14px;margin:0 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .prompt-box{background:var(--code);border:1px solid var(--border);border-radius:10px;
+              padding:10px 12px;white-space:pre-wrap;font-size:13px;max-height:220px;overflow:auto;}
+  .prompt-item{margin-bottom:10px;}
+  .prompt-item .lbl{font-size:12px;color:var(--accent);margin-bottom:2px;}
+  details.node{border:1px solid var(--border);border-radius:9px;margin-bottom:6px;background:#fbfcfe;}
+  details.node>summary{cursor:pointer;padding:8px 12px;font-size:13px;}
+  details.node>summary .t{color:var(--muted);font-size:12px;margin-left:6px;}
+  details.node .cnt{padding:0 12px 10px;font-size:12px;}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:10px;padding:12px;
+      overflow:auto;max-height:360px;font-size:12px;line-height:1.5;}
+  .conn{font-size:13px;background:var(--code);border:1px solid var(--border);border-radius:10px;
+        padding:8px 12px;max-height:260px;overflow:auto;}
+  .conn div{padding:2px 0;border-bottom:1px dashed #e7ecf3;}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--border);background:#fafbfd;}
+  a.dl{font-size:13px;color:var(--accent);text-decoration:none;border:1px solid var(--border);
+       padding:8px 12px;border-radius:9px;background:#fff;}
+  a.dl:hover{border-color:var(--accent);}
+  .foot{margin-top:24px;font-size:12px;color:var(--muted);}
+  .foot details{margin-top:8px;}
+  .foot summary{cursor:pointer;color:var(--accent);}
+  .foot ul{padding-left:18px;margin:6px 0;}
+  .empty{color:var(--muted);font-size:13px;padding:6px 0;}
+  .sec-head{display:flex;align-items:center;gap:10px;margin:0 0 8px;}
+  .sec-head h3{margin:0;}
+  .sec-count{font-size:12px;color:var(--muted);font-weight:400;margin-left:2px;}
+  .mini-btn{font-size:12px;padding:4px 10px;border-radius:7px;background:#fff;border:1px solid var(--border);
+            color:var(--muted);cursor:pointer;line-height:1.5;transition:.12s;white-space:nowrap;}
+  .mini-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+  .mini-btn:active{transform:scale(.97);}
+  .mini-btn.copied{border-color:var(--ok);color:var(--ok);background:#eefaf3;}
+  .prompt-item .lbl{display:flex;align-items:center;gap:8px;justify-content:space-between;}
+  .params{font-size:12.5px;background:var(--code);border:1px solid var(--border);border-radius:10px;
+          padding:8px 12px;max-height:300px;overflow:auto;}
+  .params .row{display:flex;gap:10px;padding:3px 0;border-bottom:1px dashed #e7ecf3;align-items:baseline;}
+  .params .row:last-child{border-bottom:none;}
+  .params .who{color:var(--muted);min-width:150px;flex-shrink:0;word-break:break-all;}
+  .params .k{color:#3a4ed6;min-width:110px;flex-shrink:0;word-break:break-all;}
+  .params .v{color:var(--text);word-break:break-all;white-space:pre-wrap;}
+  .params .v.num{color:#8a5a00;font-variant-numeric:tabular-nums;}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1f2733;color:#fff;
+         padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ComfyUI 工作流提取器 <span class="ver">v1.1</span></h1>
+    <p>从 ComfyUI 生成的 PNG 中还原内嵌工作流（节点 · 提示词 · 参数 · 连接）。各分区可单独复制到剪贴板。图片在本机处理，不上传任何服务器。</p>
+  </header>
+
+  <div id="banner" class="banner"></div>
+
+  <div id="drop" class="drop">
+    把 PNG 图片拖到这里，或 <b>点击选择</b>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;">支持多选</div>
+  </div>
+  <input id="fileInput" type="file" accept="image/png,.png" multiple hidden />
+
+  <div class="btns">
+    <button id="pickFSA" class="primary">选择图片</button>
+    <button id="pickFile">选择图片（兼容模式）</button>
+    <button id="saveAll" disabled>保存全部（写回原目录 / 下载）</button>
+    <button id="clearBtn">清空</button>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="foot">
+    <details>
+      <summary>提取功能适用的图片前提条件</summary>
+      <ul>
+        <li><b>必须是 PNG 格式</b>：ComfyUI 的 Save Image 节点只输出 PNG 并写入元数据；转成 JPG/WebP 的图不含这些块。</li>
+        <li><b>须由 ComfyUI 的 Save Image 节点直接生成</b>：若使用不写元数据的第三方保存节点、或生成时关闭了元数据写入，则没有。</li>
+        <li><b>不能被外部重编码 / 编辑 / 压缩</b>：复制、改名安全；用 Photoshop/Preview 另存、微信/QQ 压缩传输、或贴进拼图软件再导出，都会丢失 PNG 文本块（tEXt）。</li>
+        <li><b>元数据是「生成该图时」的工作流</b>，不是当前 ComfyUI 编辑器的实时状态。</li>
+        <li>内嵌两路 JSON：<code>workflow</code>（编辑器格式，含节点坐标/widget/连线）与 <code>prompt</code>（API 格式，class_type+inputs，连线以 [源节点,输出序号] 表示）。两者都是完整可复现的工作流。</li>
+      </ul>
+    </details>
+    <div>原理：ComfyUI 把工作流以 PNG 文本块（tEXt）写入图片；本程序解析这些块并还原成 JSON。桌面应用模式由 Python 直接读图与写回原目录；浏览器模式在页面内解析。</div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ===================== 桌面 App 桥接检测 ===================== */
+function hasBridge(){
+  return typeof window.pywebview !== "undefined" && window.pywebview.api;
+}
+
+/* ===================== PNG 文本块解析（浏览器模式，纯前端） ===================== */
+const PNG_SIG = [137,80,78,71,13,10,26,10];
+function parsePNGTextChunks(buf){
+  const dv = new DataView(buf);
+  const bytes = new Uint8Array(buf);
+  for(let i=0;i<8;i++) if(bytes[i]!==PNG_SIG[i]) throw new Error("不是合法的 PNG 文件");
+  let offset = 8;
+  const out = {workflow:null, prompt:null, keys:[]};
+  const latin1 = new TextDecoder("iso-8859-1");
+  const utf8 = new TextDecoder("utf-8");
+  while(offset < bytes.length){
+    if(offset+8 > bytes.length) break;
+    const length = dv.getUint32(offset); offset += 4;
+    const type = latin1.decode(bytes.subarray(offset, offset+4)); offset += 4;
+    const data = bytes.subarray(offset, offset+length); offset += length;
+    offset += 4;
+    if(type==="tEXt" || type==="iTXt" || type==="zTXt"){
+      const p = parseTextChunk(type, data, latin1, utf8);
+      if(p){ out.keys.push(p.key);
+        if(p.key==="workflow") out.workflow=p.value;
+        else if(p.key==="prompt") out.prompt=p.value; }
+    }
+    if(type==="IEND") break;
+  }
+  return out;
+}
+function parseTextChunk(type, data, latin1, utf8){
+  if(type==="tEXt"){
+    const z=data.indexOf(0); if(z<0) return null;
+    return {key:latin1.decode(data.subarray(0,z)), value:utf8.decode(data.subarray(z+1))};
+  }
+  if(type==="iTXt"){
+    const z=data.indexOf(0); if(z<0) return null;
+    const key=latin1.decode(data.subarray(0,z)); const rest=data.subarray(z+1);
+    if(rest.length<2) return null; const compFlag=rest[0];
+    const j=rest.indexOf(0,2); if(j<0) return null; const k=rest.indexOf(0,j+1); if(k<0) return null;
+    if(compFlag===1) return null;
+    return {key, value:utf8.decode(rest.subarray(k+1))};
+  }
+  return null;
+}
+
+/* ===================== 浏览器模式：解析单个文件 ===================== */
+function buildResult(file, fileHandle){
+  return file.arrayBuffer().then(buf=>{
+    const chunks = parsePNGTextChunks(buf);
+    let workflowObj=null, promptObj=null, err=null;
+    if(chunks.workflow) try{ workflowObj=JSON.parse(chunks.workflow); }catch(e){ err="workflow 块 JSON 解析失败"; }
+    if(chunks.prompt)   try{ promptObj=JSON.parse(chunks.prompt); }catch(e){ err="prompt 块 JSON 解析失败"; }
+    const hasW=!!workflowObj, hasP=!!promptObj;
+    let format="none";
+    if(hasW&&hasP) format="both"; else if(hasW) format="workflow"; else if(hasP) format="api";
+    return {fileName:file.name, baseName:file.name.replace(/\.png$/i,""),
+            fileHandle:fileHandle||null, originalPath:null, format, workflowObj, promptObj, error:err};
+  }).catch(e=>({fileName:file?file.name:"?", baseName:"?", fileHandle:null, originalPath:null,
+                format:"none", workflowObj:null, promptObj:null, error:e.message}));
+}
+
+/* 桌面模式：直接加载 Python 解析好的记录 */
+function loadResults(arr){ for(const r of arr) results.push(r); render(); }
+
+/* ===================== 结构化提取（两种模式通用） ===================== */
+/* 提示词类输入的键名：CLIPTextEncode 用 text，部分自定义节点用 prompt/positive/negative */
+const PROMPT_KEY_RE = /prompt|text/i;
+
+function extractPrompts(r){
+  const out=[];
+  if(r.format==="api" || r.promptObj){
+    const o=r.promptObj;
+    for(const [id,node] of Object.entries(o)){
+      const ins=node.inputs||{};
+      for(const [k,v] of Object.entries(ins))
+        if(typeof v==="string" && PROMPT_KEY_RE.test(k) && v.trim())
+          out.push({label:`节点 ${id} · ${node.class_type||""} · ${k}`, text:v});
+    }
+  } else if(r.workflowObj && r.workflowObj.nodes){
+    for(const node of r.workflowObj.nodes){
+      const wv=node.widgets_values;
+      if(Array.isArray(wv)) wv.forEach((w,i)=>{
+        if(typeof w==="string" && w.trim().length>8)
+          out.push({label:`节点 ${node.id} · ${node.type||""} · widget[${i}]`, text:w});
+      });
+    }
+  }
+  return out;
+}
+function extractConnections(r){
+  const out=[];
+  if(r.format==="api" || r.promptObj){
+    const o=r.promptObj;
+    for(const [id,node] of Object.entries(o)){
+      const ins=node.inputs||{};
+      for(const [k,v] of Object.entries(ins))
+        if(isLinkVal(v))
+          out.push(`节点 ${id}.${k}  ←  节点 ${v[0]} 的输出[${v[1]}]`);
+    }
+  } else if(r.workflowObj && r.workflowObj.links){
+    for(const l of r.workflowObj.links)
+      if(l.length>=5) out.push(`节点 ${l[1]} 输出[${l[2]}]  →  节点 ${l[3]} 输入[${l[4]}]`);
+  }
+  return out;
+}
+function nodeSummary(r){
+  const list=[];
+  if(r.format==="api" || r.promptObj){
+    const o=r.promptObj;
+    for(const [id,node] of Object.entries(o))
+      list.push({id, type:node.class_type||"?", title:"", n:(Object.keys(node.inputs||{})).length});
+  } else if(r.workflowObj && r.workflowObj.nodes){
+    for(const n of r.workflowObj.nodes)
+      list.push({id:n.id, type:n.type||"?", title:n.title||"", n:(n.inputs||[]).length});
+  }
+  return list;
+}
+
+/* 连线引用：[源节点ID, 输出序号]。API 格式里节点 ID 是字符串（如 ["4", 0]），需同时兼容数字 */
+function isLinkVal(v){
+  return Array.isArray(v) && v.length===2
+    && typeof v[1]==="number"
+    && (typeof v[0]==="number" || (typeof v[0]==="string" && /^\d+$/.test(v[0])));
+}
+function extractParams(r){
+  const out=[];
+  if(r.format==="api" || r.promptObj){
+    const o=r.promptObj;
+    for(const [id,node] of Object.entries(o)){
+      const ins=node.inputs||{};
+      for(const [k,v] of Object.entries(ins)){
+        if(v===null || v===undefined) continue;
+        if(isLinkVal(v)) continue;
+        if(typeof v==="object") continue;
+        if(typeof v==="string" && PROMPT_KEY_RE.test(k)) continue;   // 提示词单独成区
+        out.push({node:String(id), type:node.class_type||"", key:k, val:v});
+      }
+    }
+  } else if(r.workflowObj && r.workflowObj.nodes){
+    for(const n of r.workflowObj.nodes){
+      const wv=n.widgets_values;
+      if(Array.isArray(wv)) wv.forEach((w,i)=>{
+        if(w===null || w===undefined || typeof w==="object") return;
+        if(typeof w==="string" && w.trim().length>60) return;   // 长文本归入提示词
+        out.push({node:String(n.id), type:n.type||"", key:"widget["+i+"]", val:w});
+      });
+    }
+  }
+  return out;
+}
+
+/* 生成各分区可复制的纯文本 */
+function textFor(r, kind){
+  if(kind==="prompts"){
+    const ps=extractPrompts(r);
+    return ps.map(p=>`【${p.label}】\n${p.text}`).join("\n\n");
+  }
+  if(kind==="params"){
+    const ps=extractParams(r);
+    return ps.map(p=>`节点 ${p.node}${p.type?" · "+p.type:""} · ${p.key} = ${p.val}`).join("\n");
+  }
+  if(kind==="conns"){
+    return extractConnections(r).join("\n");
+  }
+  if(kind==="nodes"){
+    return nodeSummary(r).map(n=>`#${n.id}  ${n.type}${n.title?" （"+n.title+"）":""}  输入数=${n.n}`).join("\n");
+  }
+  return "";
+}
+
+/* ===================== 剪贴板（跨平台三级回退） ===================== */
+async function copyText(text, okMsg){
+  text = String(text==null ? "" : text);
+  if(!text.trim()){ toast("该区域没有可复制的内容"); return false; }
+  // ① Clipboard API（安全上下文：https / localhost / 127.0.0.1 均满足）
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      toast(okMsg||"已复制到剪贴板");
+      return true;
+    }
+  }catch(e){ /* 继续回退 */ }
+  // ② 桌面桥接（macOS pbcopy / Windows 剪贴板 API）
+  try{
+    if(hasBridge() && window.pywebview.api.copy_to_clipboard){
+      const res = await window.pywebview.api.copy_to_clipboard(text);
+      if(res && res.ok){ toast(okMsg||"已复制到剪贴板"); return true; }
+    }
+  }catch(e){ /* 继续回退 */ }
+  // ③ execCommand 兜底
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=text;
+    ta.setAttribute("readonly","");
+    ta.style.cssText="position:fixed;top:-2000px;left:0;opacity:0;";
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, ta.value.length);
+    const ok=document.execCommand("copy");
+    document.body.removeChild(ta);
+    if(ok){ toast(okMsg||"已复制到剪贴板"); return true; }
+  }catch(e){}
+  toast("复制失败，请手动选择文本复制");
+  return false;
+}
+
+/* ===================== 渲染 ===================== */
+const results=[];
+function fmtTag(f){
+  if(f==="both") return ['both','workflow + prompt（双格式）'];
+  if(f==="workflow") return ['wf','workflow（编辑器格式）'];
+  if(f==="api") return ['api','prompt（API 格式）'];
+  return ['none','无内嵌工作流'];
+}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function render(){
+  const box=document.getElementById("results");
+  if(results.length===0){ box.innerHTML='<div class="empty">尚未选择图片。</div>'; updateSaveBtn(); return; }
+  box.innerHTML = results.map((r,idx)=>{
+    const [cls,label]=fmtTag(r.format);
+    let inner='';
+    if(r.error && r.format==="none"){
+      inner=`<div class="empty">${esc(r.error||'该图片未内嵌任何 ComfyUI 工作流（可能为外部编辑/重编码过的图）')}</div>`;
+    } else {
+      const prompts=extractPrompts(r), conns=extractConnections(r), nodes=nodeSummary(r),
+            params=extractParams(r);
+      const cpBtn=(kind,label)=>`<button class="mini-btn cp" data-idx="${idx}" data-kind="${kind}">复制${label}</button>`;
+      const promptHTML = prompts.length
+        ? prompts.map((p,pi)=>`<div class="prompt-item"><div class="lbl"><span>${esc(p.label)}</span><button class="mini-btn cp-one" data-idx="${idx}" data-pi="${pi}">复制</button></div><div class="prompt-box">${esc(p.text)}</div></div>`).join("")
+        : '<div class="empty">未识别到显式提示词字段（可在原始 JSON 中查看）。</div>';
+      const paramHTML = params.length
+        ? `<div class="params">${params.map(p=>`<div class="row"><span class="who">#${esc(p.node)}${p.type?' '+esc(p.type):''}</span><span class="k">${esc(p.key)}</span><span class="v${typeof p.val==='number'?' num':''}">${esc(String(p.val))}</span></div>`).join("")}</div>`
+        : '<div class="empty">无独立参数（该工作流的输入可能全为连线或提示词）。</div>';
+      const connHTML = conns.length
+        ? `<div class="conn">${conns.map(c=>`<div>${esc(c)}</div>`).join("")}</div>`
+        : '<div class="empty">无连线信息。</div>';
+      const nodeHTML = nodes.length
+        ? nodes.map(n=>`<details class="node"><summary>${esc(n.type)}<span class="t">#${esc(n.id)} ${esc(n.title||'')}</span></summary><div class="cnt">输入数：${n.n}</div></details>`).join("")
+        : '<div class="empty">无节点信息。</div>';
+      const raw = JSON.stringify(r.workflowObj||r.promptObj, null, 2);
+      inner = `
+        <div class="sec"><div class="sec-head"><h3>提示词<span class="sec-count">（${prompts.length} 条）</span></h3>${prompts.length?cpBtn("prompts","全部"):""}</div>${promptHTML}</div>
+        <div class="sec"><div class="sec-head"><h3>参数<span class="sec-count">（${params.length} 项）</span></h3>${params.length?cpBtn("params","全部"):""}</div>${paramHTML}</div>
+        <div class="sec"><div class="sec-head"><h3>节点<span class="sec-count">（${nodes.length} 个）</span></h3>${nodes.length?cpBtn("nodes","全部"):""}</div>${nodeHTML}</div>
+        <div class="sec"><div class="sec-head"><h3>连接关系<span class="sec-count">（${conns.length} 条）</span></h3>${conns.length?cpBtn("conns","全部"):""}</div>${connHTML}</div>
+        <div class="sec"><div class="sec-head"><h3>原始 JSON</h3></div><pre>${esc(raw)}</pre></div>`;
+    }
+    const canSave = (r.format!=="none");
+    const dlName = r.baseName + ".json";
+    const dlData = JSON.stringify(r.workflowObj||r.promptObj, null, 2);
+    const dlHref = "data:application/json;charset=utf-8," + encodeURIComponent(dlData);
+    const saveOrig = (canSave && r.originalPath) ? `<button data-idx="${idx}" class="saveOne primary">保存到原目录</button>` : '';
+    const dlBtn = canSave ? `<a class="dl" href="${dlHref}" download="${esc(dlName)}">下载 ${esc(dlName)}</a>` : '';
+    return `
+      <div class="card">
+        <div class="top">
+          <span class="tag ${cls}">${label}</span>
+          <span class="name">${esc(r.fileName)}</span>
+        </div>
+        <div class="body">${inner}</div>
+        <div class="actions">
+          ${dlBtn}
+          ${saveOrig}
+          <button data-idx="${idx}" class="copyOne">复制 JSON</button>
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".saveOne").forEach(b=>b.onclick=()=>saveOne(+b.dataset.idx));
+  box.querySelectorAll(".copyOne").forEach(b=>b.onclick=async()=>{
+    const r=results[+b.dataset.idx];
+    const ok=await copyText(JSON.stringify(r.workflowObj||r.promptObj,null,2), "已复制完整 JSON 工作流");
+    if(ok) flashBtn(b);
+  });
+  box.querySelectorAll(".cp").forEach(b=>b.onclick=async()=>{
+    const r=results[+b.dataset.idx];
+    const ok=await copyText(textFor(r, b.dataset.kind));
+    if(ok) flashBtn(b);
+  });
+  box.querySelectorAll(".cp-one").forEach(b=>b.onclick=async()=>{
+    const r=results[+b.dataset.idx];
+    const ps=extractPrompts(r);
+    const item=ps[+b.dataset.pi];
+    const ok=await copyText(item ? item.text : "");
+    if(ok) flashBtn(b);
+  });
+  updateSaveBtn();
+}
+
+function flashBtn(btn){
+  if(!btn || btn._busy) return;
+  btn._busy=true;
+  const old=btn.textContent;
+  btn.classList.add("copied");
+  btn.textContent="✓ 已复制";
+  clearTimeout(btn._t);
+  btn._t=setTimeout(()=>{
+    btn.classList.remove("copied");
+    btn.textContent=old;
+    btn._busy=false;
+  },1200);
+}
+function updateSaveBtn(){ document.getElementById("saveAll").disabled = !results.some(r=>r.format!=="none"); }
+
+/* ===================== 保存 ===================== */
+async function saveOne(idx){
+  const r=results[idx];
+  if(r.originalPath && hasBridge()){
+    const primary=JSON.stringify(r.workflowObj||r.promptObj,null,2);
+    const apiContent=(r.workflowObj && r.promptObj)?JSON.stringify(r.promptObj,null,2):null;
+    try{
+      const res = await window.pywebview.api.save_next_to(r.originalPath, r.baseName, primary, apiContent);
+      if(res && res.ok) toast("已写回原目录：" + res.files.join("、"));
+      else toast("写回失败：" + ((res&&res.error)||"未知"));
+    }catch(e){ toast("写回异常："+e.message); }
+    return;
+  }
+  toast("该文件无原目录信息，请用下载按钮");
+}
+async function saveAll(){
+  const fsResults = results.filter(r=>r.format!=="none" && r.originalPath && hasBridge());
+  if(fsResults.length){
+    let ok=0, names=[];
+    for(const r of fsResults){
+      const primary=JSON.stringify(r.workflowObj||r.promptObj,null,2);
+      const apiContent=(r.workflowObj && r.promptObj)?JSON.stringify(r.promptObj,null,2):null;
+      try{
+        const res=await window.pywebview.api.save_next_to(r.originalPath, r.baseName, primary, apiContent);
+        if(res&&res.ok){ ok++; names.push(...res.files); }
+      }catch(e){}
+    }
+    if(ok) toast(`已写回原目录：${ok} 个`);
+  }
+  const dlResults=results.filter(r=>r.format!=="none" && !(r.originalPath && hasBridge()));
+  for(const r of dlResults){
+    const data=JSON.stringify(r.workflowObj||r.promptObj,null,2);
+    const a=document.createElement("a");
+    a.href="data:application/json;charset=utf-8,"+encodeURIComponent(data);
+    a.download=r.baseName+".json"; a.click();
+    await new Promise(res=>setTimeout(res,150));
+  }
+  if(dlResults.length && !fsResults.length) toast(`已触发下载：${dlResults.length} 个（请移回原目录）`);
+}
+
+/* ===================== 交互绑定 ===================== */
+const fsaSupported = (typeof window.showOpenFilePicker === "function");
+function setBanner(){
+  const b=document.getElementById("banner");
+  if(hasBridge()){
+    b.textContent="✅ 桌面应用模式：选择图片后由本机程序直接把同名工作流写回图片原目录。";
+  } else if(fsaSupported){
+    b.textContent="✅ 检测到 Chrome / Edge：选择图片后可直接把同名工作流写回图片原目录。";
+  } else {
+    b.textContent="ℹ️ 当前浏览器不支持直接写原目录，将把同名 .json 下载到本机（请手动移回图片所在文件夹）。推荐用本应用的桌面版本体验完整功能。";
+  }
+}
+setBanner();
+
+const drop=document.getElementById("drop");
+const fileInput=document.getElementById("fileInput");
+drop.onclick=()=>fileInput.click();
+drop.ondragover=(e)=>{e.preventDefault();drop.classList.add("hover");};
+drop.ondragleave=()=>drop.classList.remove("hover");
+drop.ondrop=(e)=>{e.preventDefault();drop.classList.remove("hover");
+  if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files, false);};
+fileInput.onchange=()=>{ if(fileInput.files.length) handleFiles(fileInput.files, false); };
+
+document.getElementById("pickFile").onclick=()=>fileInput.click();
+document.getElementById("pickFSA").onclick=async()=>{
+  if(hasBridge()){
+    try{ const recs = await window.pywebview.api.open_files(); if(recs && recs.length) loadResults(recs); }
+    catch(e){ toast("打开失败："+e.message); }
+    return;
+  }
+  if(!fsaSupported){ fileInput.click(); return; }
+  try{
+    const handles=await window.showOpenFilePicker({multiple:true,
+      types:[{description:"PNG 图片", accept:{"image/png":[".png"]}}]});
+    const files=[];
+    for(const h of handles) files.push(await h.getFile().then(f=>{f._handle=h;return f;}));
+    handleFiles(files, true);
+  }catch(e){ /* 取消 */ }
+};
+document.getElementById("saveAll").onclick=saveAll;
+document.getElementById("clearBtn").onclick=()=>{ results.length=0; render(); };
+
+async function handleFiles(fileList, fromFSA){
+  const arr=Array.from(fileList);
+  const tasks=[];
+  for(const f of arr){
+    const handle=(fromFSA && f._handle)?f._handle:null;
+    tasks.push(buildResult(f, handle));
+  }
+  const recs=await Promise.all(tasks);
+  for(const r of recs) results.push(r);
+  render();
+}
+
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build app / dmg / pkg
+        run: |
+          pyinstaller --noconfirm --clean "ComfyUI Workflow Extractor.spec"
+          test -x "dist/ComfyUI Workflow Extractor.app/Contents/MacOS/ComfyUI Workflow Extractor"
+          mkdir -p dmgroot
+          cp -R "dist/ComfyUI Workflow Extractor.app" dmgroot/
+          ln -sf /Applications dmgroot/Applications
+          hdiutil create -volname "ComfyUI Workflow Extractor" -srcfolder dmgroot -ov -format UDZO \
+            "ComfyUI-Workflow-Extractor-v1.1-macOS.dmg"
+          productbuild --component "dist/ComfyUI Workflow Extractor.app" /Applications \
+            "ComfyUI-Workflow-Extractor-v1.1-macOS.pkg" || true
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-package
+          path: |
+            ComfyUI-Workflow-Extractor-v1.1-macOS.dmg
+            ComfyUI-Workflow-Extractor-v1.1-macOS.pkg
+          if-no-files-found: warn
+
+  windows:
+    name: Windows package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build exe
+        run: pyinstaller --noconfirm --clean "ComfyUI Workflow Extractor-windows.spec"
+
+      - name: Verify and zip
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\ComfyUI-Workflow-Extractor.exe")) { throw "exe not found" }
+          Compress-Archive -Path "dist\ComfyUI-Workflow-Extractor.exe" `
+            -DestinationPath "ComfyUI-Workflow-Extractor-v1.1-Windows.zip" -Force
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-package
+          path: ComfyUI-Workflow-Extractor-v1.1-Windows.zip
+          if-no-files-found: warn

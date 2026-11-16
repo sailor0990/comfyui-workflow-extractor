@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build_venv/
+
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# 日志与临时文件
+*.log
+*.tmp
+
+# 说明：packages/ 下的安装包需要纳入版本库，故不在此忽略
+# 根目录的构建产物不提交（正式分发包统一放在 packages/）
+/ComfyUI-Workflow-Extractor-v*.dmg
+/ComfyUI-Workflow-Extractor-v*.pkg
+/ComfyUI-Workflow-Extractor-v*.zip
+/*.dmg
+/*.pkg
