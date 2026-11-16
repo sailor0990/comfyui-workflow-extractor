@@ -1,5 +1,7 @@
 # ComfyUI 工作流提取器 · ComfyUI Workflow Extractor
 
+[English Documentation](README_EN.md)
+
 **v1.1** · 从 ComfyUI 生成的 PNG 中还原完整工作流，并支持分区复制提示词 / 参数 / 节点 / 连接。
 
 一款本地运行的桌面工具（macOS / Windows），也可作为纯前端页面在浏览器中使用。所有解析均在本机完成，不联网、不上传任何图片或数据。
