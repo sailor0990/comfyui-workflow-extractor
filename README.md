@@ -31,6 +31,9 @@
 
 ## 安装
 
+预编译包也可从本仓库直接下载：<https://github.com/sailor0990/comfyui-workflow-extractor/tree/main/packages>。
+CI 每次推送会自动构建 macOS 与 Windows 包，可在 [Actions](https://github.com/sailor0990/comfyui-workflow-extractor/actions) 页面下载 Artifacts。
+
 ### macOS
 
 - `packages/macos/ComfyUI-Workflow-Extractor-v1.1-macOS.dmg` — 双击挂载，把 App 拖入「应用程序」。
